@@ -16,9 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'origin' => $_POST['origin'][$i],
                     'destination' => $_POST['destination'][$i],
                     'departure' => $_POST['departure'][$i],
-                    'arrival' => $_POST['arrival'][$i],
                     'status' => $_POST['status'][$i]
-                    // 移除了boarding字段
                 ];
             }
         }
@@ -115,7 +113,7 @@ if (file_exists('name.txt')) {
         }
         .form-row {
             display: grid;
-            grid-template-columns: 1fr 1fr 2fr 1fr 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
             gap: 10px;
             margin-bottom: 10px;
         }
@@ -199,8 +197,6 @@ if (file_exists('name.txt')) {
                     <div>出发地</div>
                     <div>目的地</div>
                     <div>出发时间</div>
-                    <div>到达时间</div>
-                    <div>状态</div>
                 </div>
                 
                 <div id="train-rows">
@@ -211,8 +207,6 @@ if (file_exists('name.txt')) {
                             <input type="text" name="origin[]" value="<?php echo htmlspecialchars($train['origin'] ?? ''); ?>" placeholder="北京">
                             <input type="text" name="destination[]" value="<?php echo htmlspecialchars($train['destination'] ?? ''); ?>" placeholder="上海">
                             <input type="text" name="departure[]" value="<?php echo htmlspecialchars($train['departure'] ?? ''); ?>" placeholder="08:00">
-                            <input type="text" name="arrival[]" value="<?php echo htmlspecialchars($train['arrival'] ?? ''); ?>" placeholder="12:30">
-                            <input type="text" name="status[]" value="<?php echo htmlspecialchars($train['status'] ?? ''); ?>" placeholder="正点">
                         </div>
                         <?php endforeach; ?>
                     <?php else: ?>
@@ -221,8 +215,6 @@ if (file_exists('name.txt')) {
                             <input type="text" name="origin[]" placeholder="北京">
                             <input type="text" name="destination[]" placeholder="上海">
                             <input type="text" name="departure[]" placeholder="08:00">
-                            <input type="text" name="arrival[]" placeholder="12:30">
-                            <input type="text" name="status[]" placeholder="正点">
                         </div>
                     <?php endif; ?>
                 </div>
@@ -245,8 +237,6 @@ if (file_exists('name.txt')) {
                 <input type="text" name="origin[]" placeholder="北京">
                 <input type="text" name="destination[]" placeholder="上海">
                 <input type="text" name="departure[]" placeholder="08:00">
-                <input type="text" name="arrival[]" placeholder="12:30">
-                <input type="text" name="status[]" placeholder="正点">
             `;
             document.getElementById('train-rows').appendChild(row);
         }

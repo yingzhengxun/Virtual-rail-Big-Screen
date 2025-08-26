@@ -125,7 +125,7 @@ $showWelcome = empty($visibleTrains) || $allHidden;
         
         .info-header {
             display: grid;
-            grid-template-columns: repeat(7, 1fr);
+            grid-template-columns: repeat(5, 1fr);
             background: #000;
             font-weight: bold;
             padding: 1.5vh 1vw;
@@ -145,7 +145,7 @@ $showWelcome = empty($visibleTrains) || $allHidden;
         
         .info-row {
             display: grid;
-            grid-template-columns: repeat(7, 1fr);
+            grid-template-columns: repeat(5, 1fr);
             background: #0066cc;
             padding: 1.5vh 1vw;
             text-align: center;
@@ -207,14 +207,12 @@ $showWelcome = empty($visibleTrains) || $allHidden;
         
         @media (max-aspect-ratio: 3/4) {
             .info-header, .info-row {
-                grid-template-columns: repeat(4, 1fr);
+                grid-template-columns: repeat(3, 1fr);
             }
+            .info-header div:nth-child(4),
             .info-header div:nth-child(5),
-            .info-header div:nth-child(6),
-            .info-header div:nth-child(7),
-            .info-row div:nth-child(5),
-            .info-row div:nth-child(6),
-            .info-row div:nth-child(7) {
+            .info-row div:nth-child(4),
+            .info-row div:nth-child(5) {
                 display: none;
             }
         }
@@ -224,9 +222,7 @@ $showWelcome = empty($visibleTrains) || $allHidden;
                 grid-template-columns: repeat(2, 1fr);
             }
             .info-header div:nth-child(3),
-            .info-header div:nth-child(4),
-            .info-row div:nth-child(3),
-            .info-row div:nth-child(4) {
+            .info-row div:nth-child(3) {
                 display: none;
             }
         }
@@ -245,15 +241,12 @@ $showWelcome = empty($visibleTrains) || $allHidden;
                     <div>出发地</div>
                     <div>目的地</div>
                     <div>出发时间</div>
-                    <div>到达时间</div>
-                    <div>状态</div>
                     <div>检票状态</div>
                 </div>
                 
                 <div class="info-rows">
                     <?php foreach ($visibleTrains as $train): 
                         $boardingClass = '';
-                        $statusClass = '';
                         if (isset($train['boarding'])) {
                             if ($train['boarding'] === '正在检票') {
                                 $boardingClass = 'boarding-now';
@@ -263,21 +256,12 @@ $showWelcome = empty($visibleTrains) || $allHidden;
                                 $boardingClass = 'boarding-not-started';
                             }
                         }
-                        if (isset($train['status'])) {
-                            if ($train['status'] === '早点') {
-                                $statusClass = 'status-early';
-                            } elseif ($train['status'] === '晚点') {
-                                $statusClass = 'status-late';
-                            }
-                        }
                     ?>
                     <div class="info-row">
                         <div><?php echo htmlspecialchars($train['number'] ?? ''); ?></div>
                         <div><?php echo htmlspecialchars($train['origin'] ?? ''); ?></div>
                         <div><?php echo htmlspecialchars($train['destination'] ?? ''); ?></div>
                         <div><?php echo htmlspecialchars($train['departure'] ?? ''); ?></div>
-                        <div><?php echo htmlspecialchars($train['arrival'] ?? ''); ?></div>
-                        <div class="<?php echo $statusClass; ?>"><?php echo htmlspecialchars($train['status'] ?? ''); ?></div>
                         <div class="boarding-status <?php echo $boardingClass; ?>">
                             <?php echo htmlspecialchars($train['boarding'] ?? '未设置'); ?>
                         </div>
