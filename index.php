@@ -14,9 +14,13 @@ if (file_exists('data.json')) {
     $trains = json_decode($data, true) ?: [];
 }
 
-// 处理车次显示逻辑
-$visibleTrains = [];
-$currentTime = new DateTime();
+// 当前时间
+$current_time = new DateTime();
+$current_timestamp = $current_time->getTimestamp();
+
+// 处理车次显示
+$visible_trains = [];
+$audio_queue = [];
 
 foreach ($trains as $train) {
     // 检查必要字段
@@ -25,201 +29,279 @@ foreach ($trains as $train) {
     }
     
     // 标准化时间格式
-    $departure = str_replace('：', ':', $train['departure']);
-    $timeParts = explode(':', $departure);
+    $departure_str = str_replace('：', ':', $train['departure']);
+    $departure_time = DateTime::createFromFormat('H:i', $departure_str);
     
-    if (count($timeParts) === 2) {
-        $hour = str_pad(trim($timeParts[0]), 2, '0', STR_PAD_LEFT);
-        $minute = str_pad(trim($timeParts[1]), 2, '0', STR_PAD_LEFT);
-        $train['departure'] = $hour . ':' . $minute;
-    }
-    
-    // 解析出发时间
-    $departureTime = DateTime::createFromFormat('H:i', $train['departure']);
-    if (!$departureTime) {
+    if (!$departure_time) {
         continue;
     }
     
-    // 计算时间差（分钟）
-    $timeDiff = ($departureTime->getTimestamp() - $currentTime->getTimestamp()) / 60;
+    $departure_timestamp = $departure_time->getTimestamp();
+    $time_diff = ($departure_timestamp - $current_timestamp) / 60;
     
-    // 开点后隐藏车次
-    if ($timeDiff <= 0) {
+    // 开点后隐藏
+    if ($time_diff <= 0) {
         continue;
     }
     
-    // 设置检票状态
-    $boardingStatus = '未开始';
-    if ($timeDiff <= 15 && $timeDiff > 5) {
-        $boardingStatus = '正在检票';
-    } elseif ($timeDiff <= 5 && $timeDiff > 0) {
-        $boardingStatus = '停止检票';
-    }
-    
-    // 设置状态显示
+    // 设置默认状态
     $train['status'] = $train['status'] ?? '正点';
-    $train['boarding'] = $boardingStatus;
-    $train['status_display'] = $train['status'] . ' (' . $boardingStatus . ')';
+    $train['boarding'] = '未开始';
     
-    $visibleTrains[] = $train;
+    // 状态变化检测
+    $status_changed = false;
+    $boarding_changed = false;
+    
+    // 检查状态变化
+    if (isset($train['last_status']) && $train['last_status'] !== $train['status']) {
+        $status_changed = true;
+    }
+    
+    // 检查检票状态变化
+    $new_boarding = '未开始';
+    if ($time_diff <= 15 && $time_diff > 5) {
+        $new_boarding = '正在检票';
+    } elseif ($time_diff <= 5) {
+        $new_boarding = '停止检票';
+    }
+    
+    if (isset($train['last_boarding']) && $train['last_boarding'] !== $new_boarding) {
+        $boarding_changed = true;
+    }
+    
+    // 更新车次状态
+    $train['boarding'] = $new_boarding;
+    $train['last_boarding'] = $new_boarding;
+    $train['last_status'] = $train['status'];
+    
+    // 添加到可见车次
+    $visible_trains[] = $train;
+    
+    // 添加到音频队列
+    if ($boarding_changed) {
+        if ($new_boarding === '正在检票') {
+            $audio_queue[] = [
+                'type' => 'boarding_start',
+                'train_number' => $train['number'],
+                'files' => ["music/{$train['number']}.wav", "music/开检.wav"]
+            ];
+        } elseif ($new_boarding === '停止检票') {
+            $audio_queue[] = [
+                'type' => 'boarding_end',
+                'train_number' => $train['number'],
+                'files' => ["music/{$train['number']}.wav", "music/停检.wav"]
+            ];
+        }
+    }
+    
+    if ($status_changed) {
+        if ($train['status'] === '早点') {
+            $audio_queue[] = [
+                'type' => 'early',
+                'train_number' => $train['number'],
+                'files' => ["music/{$train['number']}.wav", "music/早点.wav"]
+            ];
+        } elseif ($train['status'] === '晚点') {
+            $audio_queue[] = [
+                'type' => 'late',
+                'train_number' => $train['number'],
+                'files' => ["music/{$train['number']}.wav", "music/晚点.wav"]
+            ];
+        }
+    }
 }
 
 // 按出发时间排序
-usort($visibleTrains, function($a, $b) {
-    return strtotime($a['departure']) - strtotime($b['departure']);
+usort($visible_trains, function($a, $b) {
+    return strcmp($a['departure'], $b['departure']);
 });
-
-// 如果没有可见车次，显示欢迎语
-$showWelcome = empty($visibleTrains);
 ?>
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($station_name); ?> - 列车信息</title>
+    <title><?php echo $station_name; ?> - 列车信息</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        /* 样式部分保持不变 */
         body {
             font-family: 'Microsoft YaHei', Arial, sans-serif;
             background: #003366;
             color: white;
-            min-height: 100vh;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
         }
         
         .container {
-            width: 100%;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
         }
         
         .header {
             background: #000;
-            color: white;
             text-align: center;
-            padding: 20px;
+            padding: 15px 0;
             font-size: 24px;
-            margin-bottom: 20px;
-            border-radius: 8px;
         }
         
         .train-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-            color: #333;
-            border-radius: 8px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
             overflow: hidden;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
         }
         
-        .train-table th {
-            background: #2c3e50;
+        .table-header {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            background: #000;
             color: white;
+            font-weight: bold;
             padding: 15px;
             text-align: center;
-            font-weight: bold;
         }
         
-        .train-table td {
-            padding: 12px;
+        .table-body {
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        .table-row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            background: #0066cc;
+            padding: 15px;
             text-align: center;
-            border-bottom: 1px solid #ecf0f1;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
         
-        .train-table tr:nth-child(even) {
-            background: #f8f9fa;
-        }
-        
-        .train-table tr:hover {
-            background: #e8f4fc;
-        }
-        
-        .status-positive {
-            color: #27ae60;
+        .status-early {
+            color: #00ff00;
             font-weight: bold;
         }
         
         .status-late {
-            color: #e74c3c;
+            color: #ff0000;
             font-weight: bold;
         }
         
         .boarding-now {
-            color: #e74c3c;
+            color: #00ff00;
             font-weight: bold;
         }
         
         .boarding-ended {
-            color: #f39c12;
-            font-weight: bold;
-        }
-        
-        .boarding-not-started {
-            color: #3498db;
+            color: #ff0000;
             font-weight: bold;
         }
         
         .welcome {
-            text-align: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
             font-size: 36px;
-            padding: 100px 0;
-            background: white;
-            color: #7f8c8d;
-            border-radius: 8px;
+            font-weight: bold;
+            text-align: center;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header"><?php echo htmlspecialchars($station_name); ?>列车信息显示屏</div>
+        <div class="header"><?php echo $station_name; ?>列车信息显示屏</div>
         
-        <?php if ($showWelcome): ?>
-            <div class="welcome"><?php echo htmlspecialchars($station_name); ?>欢迎您</div>
+        <?php if (empty($visible_trains)): ?>
+            <div class="welcome"><?php echo $station_name; ?>欢迎您</div>
         <?php else: ?>
-            <table class="train-table">
-                <thead>
-                    <tr>
-                        <th>车次</th>
-                        <th>出发地</th>
-                        <th>目的地</th>
-                        <th>出发时间</th>
-                        <th>状态</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($visibleTrains as $train): 
-                        $statusClass = ($train['status'] === '晚点') ? 'status-late' : 'status-positive';
-                        $boardingClass = '';
-                        switch ($train['boarding']) {
-                            case '正在检票': $boardingClass = 'boarding-now'; break;
-                            case '停止检票': $boardingClass = 'boarding-ended'; break;
-                            default: $boardingClass = 'boarding-not-started';
-                        }
-                    ?>
-                    <tr>
-                        <td><strong><?php echo htmlspecialchars($train['number']); ?></strong></td>
-                        <td><?php echo htmlspecialchars($train['origin']); ?></td>
-                        <td><?php echo htmlspecialchars($train['destination']); ?></td>
-                        <td><?php echo htmlspecialchars($train['departure']); ?></td>
-                        <td class="<?php echo $statusClass; ?>">
+            <div class="train-table">
+                <div class="table-header">
+                    <div>车次</div>
+                    <div>出发地</div>
+                    <div>目的地</div>
+                    <div>出发时间</div>
+                    <div>状态</div>
+                </div>
+                
+                <div class="table-body">
+                    <?php foreach ($visible_trains as $train): ?>
+                    <div class="table-row">
+                        <div><?php echo htmlspecialchars($train['number']); ?></div>
+                        <div><?php echo htmlspecialchars($train['origin']); ?></div>
+                        <div><?php echo htmlspecialchars($train['destination']); ?></div>
+                        <div><?php echo htmlspecialchars($train['departure']); ?></div>
+                        <div class="<?php 
+                            if ($train['status'] === '早点') echo 'status-early';
+                            elseif ($train['status'] === '晚点') echo 'status-late';
+                        ?>">
                             <?php echo htmlspecialchars($train['status']); ?>
                             <br>
-                            <span class="<?php echo $boardingClass; ?>" style="font-size: 12px;">
+                            <span class="<?php 
+                                if ($train['boarding'] === '正在检票') echo 'boarding-now';
+                                elseif ($train['boarding'] === '停止检票') echo 'boarding-ended';
+                            ?>">
                                 (<?php echo htmlspecialchars($train['boarding']); ?>)
                             </span>
-                        </td>
-                    </tr>
+                        </div>
+                    </div>
                     <?php endforeach; ?>
-                </tbody>
-            </table>
+                </div>
+            </div>
         <?php endif; ?>
     </div>
+    
+    <!-- 音频播放器 -->
+    <audio id="audio-player"></audio>
+    
+    <script>
+        // 音频队列
+        let audioQueue = <?php echo json_encode($audio_queue); ?>;
+        let isPlaying = false;
+        let currentQueue = [];
+        
+        // 播放音频队列
+        function playAudioQueue() {
+            if (currentQueue.length === 0 || isPlaying) return;
+            
+            isPlaying = true;
+            const audioPlayer = document.getElementById('audio-player');
+            const nextAudio = currentQueue.shift();
+            
+            audioPlayer.src = nextAudio;
+            audioPlayer.play().catch(e => console.log('音频播放失败:', e));
+            
+            audioPlayer.onended = function() {
+                isPlaying = false;
+                setTimeout(playAudioQueue, 500); // 音频间间隔500毫秒
+            };
+        }
+        
+        // 处理音频队列
+        function processAudioQueue() {
+            if (audioQueue.length === 0) return;
+            
+            const nextAudioSet = audioQueue.shift();
+            currentQueue = nextAudioSet.files;
+            playAudioQueue();
+        }
+        
+        // 初始处理
+        processAudioQueue();
+        
+        // 每分钟检查一次
+        setInterval(() => {
+            // 刷新页面获取最新数据
+            fetch(window.location.href, {
+                headers: { 'Cache-Control': 'no-cache' }
+            })
+            .then(response => response.text())
+            .then(html => {
+                const newDoc = new DOMParser().parseFromString(html, 'text/html');
+                document.body.innerHTML = newDoc.body.innerHTML;
+            });
+        }, 60000);
+    </script>
 </body>
 </html>

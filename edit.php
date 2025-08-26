@@ -1,5 +1,5 @@
 <?php
-// 错误报告开启（开发环境）
+// 错误报告开启
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
@@ -74,7 +74,7 @@ if (file_exists('name.txt')) {
             background-color: #f5f5f5;
         }
         .container {
-            max-width: 1400px;
+            max-width: 1200px;
             margin: 0 auto;
             background: white;
             padding: 20px;
@@ -209,7 +209,7 @@ if (file_exists('name.txt')) {
                             <input type="text" name="destination[]" value="<?php echo htmlspecialchars($train['destination'] ?? ''); ?>" placeholder="上海">
                             <input type="text" name="departure[]" value="<?php echo htmlspecialchars($train['departure'] ?? ''); ?>" placeholder="08:00">
                             <select name="status[]">
-                                <option value="正点" <?php echo (!isset($train['status']) || $train['status'] === '正点') ? 'selected' : ''; ?>>正点</option>
+                                <option value="正点" <?php echo (isset($train['status']) && $train['status'] === '正点') ? 'selected' : ''; ?>>正点</option>
                                 <option value="早点" <?php echo (isset($train['status']) && $train['status'] === '早点') ? 'selected' : ''; ?>>早点</option>
                                 <option value="晚点" <?php echo (isset($train['status']) && $train['status'] === '晚点') ? 'selected' : ''; ?>>晚点</option>
                             </select>
