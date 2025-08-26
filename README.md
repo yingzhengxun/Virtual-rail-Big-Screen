@@ -131,4 +131,5 @@ virtual-station/
 
 - 在公共服务器使用时，建议添加基本身份验证
 
-## 使用MIT License
+## 使用Apache 许可证2.0 版
+
