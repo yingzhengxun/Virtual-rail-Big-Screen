@@ -8,6 +8,70 @@ if (file_exists('data.json')) {
     $data = file_get_contents('data.json');
     $trains = json_decode($data, true) ?: [];
 }
+
+// 当前时间
+$currentTime = new DateTime();
+$currentTimestamp = $currentTime->getTimestamp();
+
+// 处理车次状态
+$visibleTrains = [];
+$allHidden = true;
+
+foreach ($trains as $train) {
+    if (!isset($train['departure']) || empty($train['departure'])) {
+        continue;
+    }
+    
+    try {
+        $departureTime = DateTime::createFromFormat('H:i', $train['departure']);
+        if (!$departureTime) {
+            continue;
+        }
+        
+        $departureTimestamp = $departureTime->getTimestamp();
+        $departureDate = $departureTime->format('Y-m-d');
+        
+        // 检查是否是明天的车次（跨天情况）
+        $tomorrow = (new DateTime())->modify('+1 day')->format('Y-m-d');
+        $isTomorrow = ($departureDate === $tomorrow);
+        
+        // 计算时间差（分钟）
+        $timeDiff = ($departureTimestamp - $currentTimestamp) / 60;
+        
+        // 自动设置检票状态
+        $boardingStatus = '未开始';
+        $isVisible = true;
+        
+        if ($timeDiff <= 15 && $timeDiff > 5) {
+            $boardingStatus = '正在检票';
+        } elseif ($timeDiff <= 5 && $timeDiff > 0) {
+            $boardingStatus = '停止检票';
+        } elseif ($timeDiff <= 0) {
+            $isVisible = false; // 开点后隐藏
+        }
+        
+        // 如果是明天的车次，保持可见
+        if ($isTomorrow) {
+            $isVisible = true;
+            $boardingStatus = '未开始';
+        }
+        
+        // 更新车次状态
+        $train['boarding'] = $boardingStatus;
+        $train['isVisible'] = $isVisible;
+        
+        if ($isVisible) {
+            $visibleTrains[] = $train;
+            $allHidden = false;
+        }
+        
+    } catch (Exception $e) {
+        continue;
+    }
+}
+
+// 如果没有可见车次或全部隐藏，显示欢迎语
+$showWelcome = empty($visibleTrains) || $allHidden;
 ?>
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -173,7 +237,7 @@ if (file_exists('data.json')) {
     
     <div class="content">
         <div class="info-container">
-            <?php if (empty($trains)): ?>
+            <?php if ($showWelcome): ?>
                 <div class="welcome-message"><?php echo $station_name; ?>欢迎您</div>
             <?php else: ?>
                 <div class="info-header">
@@ -187,7 +251,7 @@ if (file_exists('data.json')) {
                 </div>
                 
                 <div class="info-rows">
-                    <?php foreach ($trains as $train): 
+                    <?php foreach ($visibleTrains as $train): 
                         $boardingClass = '';
                         $statusClass = '';
                         if (isset($train['boarding'])) {
@@ -228,17 +292,12 @@ if (file_exists('data.json')) {
     <audio id="audio-player"></audio>
     
     <script>
-        // 音频队列
-        let audioQueue = [];
-        let isPlaying = false;
-        
         // 音频文件映射
         const audioFiles = {
-            '开检': 'music/开检.wav',
-            '停检': 'music/停检.wav',
+            '正在检票': 'music/开检.wav',
+            '停止检票': 'music/停检.wav',
             '早点': 'music/早点.wav',
-            '晚点': 'music/晚点.wav',
-            '乘客你好': 'music/乘客你好.wav'
+            '晚点': 'music/晚点.wav'
         };
         
         // 上次播放状态记录
@@ -247,65 +306,35 @@ if (file_exists('data.json')) {
             status: {}
         };
         
-        // 播放音频队列
-        function playAudioQueue() {
-            if (audioQueue.length === 0 || isPlaying) return;
-            
-            isPlaying = true;
-            const audioPlayer = document.getElementById('audio-player');
-            const nextAudio = audioQueue.shift();
-            
-            audioPlayer.src = nextAudio;
-            audioPlayer.play().catch(e => console.log('音频播放失败:', e));
-            
-            audioPlayer.onended = function() {
-                isPlaying = false;
-                setTimeout(playAudioQueue, 300); // 音频间间隔300毫秒
-            };
-        }
-        
-        // 添加音频到队列
-        function addToAudioQueue(audioFile) {
-            if (audioFile) {
-                audioQueue.push(audioFile);
-                if (!isPlaying) {
-                    playAudioQueue();
+        // 播放音频
+        function playAudio(type, value, trainNumber) {
+            if (audioFiles[value]) {
+                const audioPlayer = document.getElementById('audio-player');
+                audioPlayer.src = audioFiles[value];
+                
+                // 检查是否已经播放过相同的状态
+                if (!lastPlayed[type][trainNumber] || lastPlayed[type][trainNumber] !== value) {
+                    audioPlayer.play().catch(e => console.log('音频播放失败:', e));
+                    lastPlayed[type][trainNumber] = value;
                 }
             }
         }
         
         // 检查并播放音频
         function checkAndPlayAudio() {
-            const trains = <?php echo json_encode($trains); ?>;
+            const trains = <?php echo json_encode($visibleTrains); ?>;
             
             trains.forEach(train => {
                 const trainNumber = train.number || '';
-                const trainAudio = `music/${trainNumber}.wav`;
                 
                 // 检查检票状态
-                if (train.boarding && train.boarding !== lastPlayed.boarding[trainNumber]) {
-                    if (train.boarding === '正在检票') {
-                        addToAudioQueue(trainAudio);
-                        addToAudioQueue(audioFiles['开检']);
-                    } else if (train.boarding === '停止检票') {
-                        addToAudioQueue(trainAudio);
-                        addToAudioQueue(audioFiles['停检']);
-                    }
-                    lastPlayed.boarding[trainNumber] = train.boarding;
+                if (train.boarding && audioFiles[train.boarding]) {
+                    playAudio('boarding', train.boarding, trainNumber);
                 }
                 
                 // 检查列车状态
-                if (train.status && train.status !== lastPlayed.status[trainNumber]) {
-                    if (train.status === '早点') {
-                        addToAudioQueue(audioFiles['乘客你好']);
-                        addToAudioQueue(trainAudio);
-                        addToAudioQueue(audioFiles['早点']);
-                    } else if (train.status === '晚点') {
-                        addToAudioQueue(audioFiles['乘客你好']);
-                        addToAudioQueue(trainAudio);
-                        addToAudioQueue(audioFiles['晚点']);
-                    }
-                    lastPlayed.status[trainNumber] = train.status;
+                if (train.status && audioFiles[train.status]) {
+                    playAudio('status', train.status, trainNumber);
                 }
             });
         }
@@ -336,6 +365,26 @@ if (file_exists('data.json')) {
         
         // 窗口大小变化时调整
         window.addEventListener('resize', adjustFontSize);
+        
+        // 检查是否需要刷新页面（跨天时）
+        function checkMidnightRefresh() {
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            
+            // 在午夜00:00刷新页面
+            if (hours === 0 && minutes === 0) {
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000); // 延迟1秒确保准确
+            }
+        }
+        
+        // 初始检查
+        checkMidnightRefresh();
+        
+        // 每分钟检查一次
+        setInterval(checkMidnightRefresh, 60000);
     </script>
 </body>
 </html>

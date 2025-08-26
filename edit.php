@@ -17,8 +17,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'destination' => $_POST['destination'][$i],
                     'departure' => $_POST['departure'][$i],
                     'arrival' => $_POST['arrival'][$i],
-                    'status' => $_POST['status'][$i],
-                    'boarding' => $_POST['boarding'][$i]
+                    'status' => $_POST['status'][$i]
+                    // 移除了boarding字段
                 ];
             }
         }
@@ -67,7 +67,7 @@ if (file_exists('name.txt')) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>编辑车次信息 - <?php echo $station_name; ?></title>
+    <title>编辑车次信息 - <?php echo htmlspecialchars($station_name); ?></title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -115,7 +115,7 @@ if (file_exists('name.txt')) {
         }
         .form-row {
             display: grid;
-            grid-template-columns: repeat(7, 1fr);
+            grid-template-columns: 1fr 1fr 2fr 1fr 1fr 1fr;
             gap: 10px;
             margin-bottom: 10px;
         }
@@ -169,7 +169,7 @@ if (file_exists('name.txt')) {
 </head>
 <body>
     <div class="container">
-        <h1>编辑车次信息 - <?php echo $station_name; ?></h1>
+        <h1>编辑车次信息 - <?php echo htmlspecialchars($station_name); ?></h1>
         
         <?php if (isset($_GET['success'])): ?>
             <div class="success">车次信息已成功更新！</div>
@@ -201,7 +201,6 @@ if (file_exists('name.txt')) {
                     <div>出发时间</div>
                     <div>到达时间</div>
                     <div>状态</div>
-                    <div>检票状态</div>
                 </div>
                 
                 <div id="train-rows">
@@ -214,11 +213,6 @@ if (file_exists('name.txt')) {
                             <input type="text" name="departure[]" value="<?php echo htmlspecialchars($train['departure'] ?? ''); ?>" placeholder="08:00">
                             <input type="text" name="arrival[]" value="<?php echo htmlspecialchars($train['arrival'] ?? ''); ?>" placeholder="12:30">
                             <input type="text" name="status[]" value="<?php echo htmlspecialchars($train['status'] ?? ''); ?>" placeholder="正点">
-                            <select name="boarding[]">
-                                <option value="未开始" <?php echo (isset($train['boarding']) && $train['boarding'] === '未开始') ? 'selected' : ''; ?>>未开始</option>
-                                <option value="正在检票" <?php echo (isset($train['boarding']) && $train['boarding'] === '正在检票') ? 'selected' : ''; ?>>正在检票</option>
-                                <option value="停止检票" <?php echo (isset($train['boarding']) && $train['boarding'] === '停止检票') ? 'selected' : ''; ?>>停止检票</option>
-                            </select>
                         </div>
                         <?php endforeach; ?>
                     <?php else: ?>
@@ -229,11 +223,6 @@ if (file_exists('name.txt')) {
                             <input type="text" name="departure[]" placeholder="08:00">
                             <input type="text" name="arrival[]" placeholder="12:30">
                             <input type="text" name="status[]" placeholder="正点">
-                            <select name="boarding[]">
-                                <option value="未开始" selected>未开始</option>
-                                <option value="正在检票">正在检票</option>
-                                <option value="停止检票">停止检票</option>
-                            </select>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -258,11 +247,6 @@ if (file_exists('name.txt')) {
                 <input type="text" name="departure[]" placeholder="08:00">
                 <input type="text" name="arrival[]" placeholder="12:30">
                 <input type="text" name="status[]" placeholder="正点">
-                <select name="boarding[]">
-                    <option value="未开始" selected>未开始</option>
-                    <option value="正在检票">正在检票</option>
-                    <option value="停止检票">停止检票</option>
-                </select>
             `;
             document.getElementById('train-rows').appendChild(row);
         }
