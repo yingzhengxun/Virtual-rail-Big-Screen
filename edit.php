@@ -113,7 +113,7 @@ if (file_exists('name.txt')) {
         }
         .form-row {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
             gap: 10px;
             margin-bottom: 10px;
         }
@@ -197,6 +197,7 @@ if (file_exists('name.txt')) {
                     <div>出发地</div>
                     <div>目的地</div>
                     <div>出发时间</div>
+                    <div>状态</div>
                 </div>
                 
                 <div id="train-rows">
@@ -207,6 +208,11 @@ if (file_exists('name.txt')) {
                             <input type="text" name="origin[]" value="<?php echo htmlspecialchars($train['origin'] ?? ''); ?>" placeholder="北京">
                             <input type="text" name="destination[]" value="<?php echo htmlspecialchars($train['destination'] ?? ''); ?>" placeholder="上海">
                             <input type="text" name="departure[]" value="<?php echo htmlspecialchars($train['departure'] ?? ''); ?>" placeholder="08:00">
+                            <select name="status[]">
+                                <option value="正点" <?php echo (!isset($train['status']) || $train['status'] === '正点') ? 'selected' : ''; ?>>正点</option>
+                                <option value="早点" <?php echo (isset($train['status']) && $train['status'] === '早点') ? 'selected' : ''; ?>>早点</option>
+                                <option value="晚点" <?php echo (isset($train['status']) && $train['status'] === '晚点') ? 'selected' : ''; ?>>晚点</option>
+                            </select>
                         </div>
                         <?php endforeach; ?>
                     <?php else: ?>
@@ -215,6 +221,11 @@ if (file_exists('name.txt')) {
                             <input type="text" name="origin[]" placeholder="北京">
                             <input type="text" name="destination[]" placeholder="上海">
                             <input type="text" name="departure[]" placeholder="08:00">
+                            <select name="status[]">
+                                <option value="正点" selected>正点</option>
+                                <option value="早点">早点</option>
+                                <option value="晚点">晚点</option>
+                            </select>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -237,6 +248,11 @@ if (file_exists('name.txt')) {
                 <input type="text" name="origin[]" placeholder="北京">
                 <input type="text" name="destination[]" placeholder="上海">
                 <input type="text" name="departure[]" placeholder="08:00">
+                <select name="status[]">
+                    <option value="正点" selected>正点</option>
+                    <option value="早点">早点</option>
+                    <option value="晚点">晚点</option>
+                </select>
             `;
             document.getElementById('train-rows').appendChild(row);
         }

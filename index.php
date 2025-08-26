@@ -241,12 +241,22 @@ $showWelcome = empty($visibleTrains) || $allHidden;
                     <div>出发地</div>
                     <div>目的地</div>
                     <div>出发时间</div>
-                    <div>检票状态</div>
+                    <div>状态</div>
                 </div>
                 
                 <div class="info-rows">
                     <?php foreach ($visibleTrains as $train): 
+                        $statusClass = '';
                         $boardingClass = '';
+                        
+                        if (isset($train['status'])) {
+                            if ($train['status'] === '早点') {
+                                $statusClass = 'status-early';
+                            } elseif ($train['status'] === '晚点') {
+                                $statusClass = 'status-late';
+                            }
+                        }
+                        
                         if (isset($train['boarding'])) {
                             if ($train['boarding'] === '正在检票') {
                                 $boardingClass = 'boarding-now';
@@ -262,8 +272,13 @@ $showWelcome = empty($visibleTrains) || $allHidden;
                         <div><?php echo htmlspecialchars($train['origin'] ?? ''); ?></div>
                         <div><?php echo htmlspecialchars($train['destination'] ?? ''); ?></div>
                         <div><?php echo htmlspecialchars($train['departure'] ?? ''); ?></div>
-                        <div class="boarding-status <?php echo $boardingClass; ?>">
-                            <?php echo htmlspecialchars($train['boarding'] ?? '未设置'); ?>
+                        <div class="<?php echo $statusClass; ?>">
+                            <?php echo htmlspecialchars($train['status'] ?? '正点'); ?>
+                            <?php if (isset($train['boarding'])): ?>
+                                <div class="boarding-status <?php echo $boardingClass; ?>" style="font-size: 0.8em;">
+                                    (<?php echo htmlspecialchars($train['boarding']); ?>)
+                                </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                     <?php endforeach; ?>
